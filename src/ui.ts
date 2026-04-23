@@ -9,6 +9,7 @@ import { renderCategorySparklines } from './components/CategorySparklines';
 import { renderExpenseLog } from './components/ExpenseLog';
 import { renderAddExpenseModal } from './components/AddExpenseModal';
 import { renderRecurringPanel } from './components/RecurringPanel';
+import { renderSettingsPanel } from './components/SettingsPanel';
 import { drawSparkline } from './utils/sparkline';
 import { getCategoryDailySeries, CATEGORIES, CATEGORY_COLORS } from './calculations';
 import {
@@ -37,6 +38,9 @@ function buildHTML(): string {
         <h1 class="app-title">Budget SLO Dashboard</h1>
         <p class="app-subtitle">Your personal finance reliability tracker</p>
       </div>
+      <button class="btn-ghost btn-settings" data-action="open-settings" aria-label="Open settings">
+        ⚙ Settings
+      </button>
     </header>
 
     <div class="grid-2 mt-section">
@@ -66,6 +70,7 @@ function buildHTML(): string {
     </div>
 
     ${renderAddExpenseModal()}
+    ${renderSettingsPanel(s)}
   `;
 }
 
@@ -125,6 +130,21 @@ function attachEvents(el: HTMLElement): void {
     });
   }
 
+  const settingsModal = el.querySelector<HTMLElement>('#settings-modal');
+  if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) closeSettingsPanel();
+    });
+  }
+
+  const settingsBudgetInput = el.querySelector<HTMLInputElement>('#settings-budget-input');
+  if (settingsBudgetInput) {
+    settingsBudgetInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveSettingsBudget();
+      if (e.key === 'Escape') closeSettingsPanel();
+    });
+  }
+
   // Global ESC key to close modals
   document.addEventListener(
     'keydown',
@@ -132,6 +152,7 @@ function attachEvents(el: HTMLElement): void {
       if (e.key === 'Escape') {
         closeAddExpenseModal();
         closeAddRecurringModal();
+        closeSettingsPanel();
       }
     },
     { once: true },
@@ -158,6 +179,18 @@ function handleClick(e: Event): void {
 
     case 'cancel-budget':
       cancelBudgetEdit();
+      break;
+
+    case 'open-settings':
+      openSettingsPanel();
+      break;
+
+    case 'close-settings':
+      closeSettingsPanel();
+      break;
+
+    case 'save-settings-budget':
+      saveSettingsBudget();
       break;
 
     case 'open-add-expense':
@@ -247,6 +280,47 @@ function saveBudget(): void {
       settings: { ...state.settings, monthlyBudget: val },
       expenses,
     });
+  })();
+}
+
+// ----- Settings panel -----
+
+function openSettingsPanel(): void {
+  const modal = document.getElementById('settings-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.getElementById('settings-budget-input')?.focus();
+  }
+}
+
+function closeSettingsPanel(): void {
+  const modal = document.getElementById('settings-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    hideFormError(document.getElementById('settings-budget-error'));
+  }
+}
+
+function saveSettingsBudget(): void {
+  const input = document.getElementById('settings-budget-input') as HTMLInputElement | null;
+  const errorEl = document.getElementById('settings-budget-error');
+  if (!input) return;
+
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 0) {
+    showFormError(errorEl, 'Please enter a valid budget amount (0 or greater).');
+    return;
+  }
+
+  void (async () => {
+    await saveMonthlyBudget(val);
+    const now = new Date();
+    const expenses = await getExpensesForMonth(now.getFullYear(), now.getMonth());
+    setState({
+      settings: { ...state.settings, monthlyBudget: val },
+      expenses,
+    });
+    closeSettingsPanel();
   })();
 }
 
