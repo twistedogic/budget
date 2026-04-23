@@ -481,13 +481,120 @@
     /* ─── Utilities ──────────────────────────────────────── */
     .hidden { display: none !important; }
 
+    /* ─── Settings Button ───────────────────────────────── */
+    .btn-settings {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      padding: 7px 14px;
+      white-space: nowrap;
+      align-self: center;
+    }
+
+    /* ─── Settings Panel ─────────────────────────────────── */
+    .settings-modal-box {
+      max-width: 480px;
+    }
+
+    .settings-section {
+      padding-top: 4px;
+    }
+
+    .settings-section-header {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    .settings-section-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .settings-section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .settings-section-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .settings-current-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .settings-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    .settings-current-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .settings-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .settings-input-wrap {
+      position: relative;
+      flex: 1;
+    }
+
+    .settings-input-prefix {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .settings-budget-input {
+      width: 100%;
+      padding-left: 28px !important;
+    }
+
+    .settings-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+      font-style: italic;
+    }
+
     /* ─── Scrollbar (global) ─────────────────────────────── */
     ::-webkit-scrollbar       { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: #2a2d3a; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #3a3d4a; }
   </style>
-  <script type="module" crossorigin src="/budget/assets/index-BzNb_9Vm.js"></script>
+  <script type="module" crossorigin src="/budget/assets/index-CL-NgZTW.js"></script>
 <link rel="manifest" href="/budget/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/budget/registerSW.js"></script></head>
 <body>
   <div id="app">
