@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  base: '/budget-slo-dashboard/',
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/budget/' : '/',
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -16,7 +16,7 @@ export default defineConfig({
         theme_color: '#0f1117',
         background_color: '#0f1117',
         display: 'standalone',
-        start_url: '/budget-slo-dashboard/',
+        start_url: '/budget/',
         icons: [
           {
             src: 'pwa-192.png',
@@ -67,4 +67,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));
