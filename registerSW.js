@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/budget-slo-dashboard/sw.js', { scope: '/budget-slo-dashboard/' })})}
