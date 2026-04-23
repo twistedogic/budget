@@ -1,0 +1,25 @@
+{
+  "name": "budget-slo-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy": "vite build && gh-pages -d dist"
+  },
+  "dependencies": {
+    "dexie": "^4.0.11"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vite": "^5.4.14",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^1.4.0",
+    "@vitest/ui": "^1.4.0",
+    "gh-pages": "^6.1.1"
+  }
+}

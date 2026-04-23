@@ -1,0 +1,9 @@
+{
+  "name": "Budget SLO Dashboard",
+  "short_name": "SLO Dashboard",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0ea5e9",
+  "icons": []
+}
