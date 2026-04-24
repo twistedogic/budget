@@ -20,9 +20,12 @@ export const db = new BudgetDB();
 
 export async function loadSettings(): Promise<Settings> {
   const rows = await db.settings.toArray();
-  if (rows.length > 0) return rows[0];
-  const id = await db.settings.add({ monthlyBudget: 0 });
-  return { id, monthlyBudget: 0 };
+  if (rows.length > 0) {
+    const s = rows[0];
+    return { ...s, incidentThresholdPct: s.incidentThresholdPct ?? 10 };
+  }
+  const id = await db.settings.add({ monthlyBudget: 0, incidentThresholdPct: 10 });
+  return { id, monthlyBudget: 0, incidentThresholdPct: 10 };
 }
 
 export async function saveMonthlyBudget(amount: number): Promise<void> {
@@ -30,7 +33,16 @@ export async function saveMonthlyBudget(amount: number): Promise<void> {
   if (rows.length > 0) {
     await db.settings.update(rows[0].id!, { monthlyBudget: amount });
   } else {
-    await db.settings.add({ monthlyBudget: amount });
+    await db.settings.add({ monthlyBudget: amount, incidentThresholdPct: 10 });
+  }
+}
+
+export async function saveIncidentThreshold(pct: number): Promise<void> {
+  const rows = await db.settings.toArray();
+  if (rows.length > 0) {
+    await db.settings.update(rows[0].id!, { incidentThresholdPct: pct });
+  } else {
+    await db.settings.add({ monthlyBudget: 0, incidentThresholdPct: pct });
   }
 }
 

@@ -2,21 +2,33 @@ import type { AppState } from '../state';
 import type { RecurringTemplate } from '../types';
 import { CATEGORIES, CATEGORY_LABELS, CATEGORY_COLORS } from '../calculations';
 import { formatCurrency, escapeHtml } from '../utils/format';
-import { todayISO } from '../utils/format';
+
+const FREQUENCY_LABELS: Record<string, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+};
 
 function frequencyLabel(f: string): string {
-  return f.charAt(0).toUpperCase() + f.slice(1);
+  return FREQUENCY_LABELS[f] ?? (f.charAt(0).toUpperCase() + f.slice(1));
 }
 
 function recurringRow(t: RecurringTemplate): string {
   const color = CATEGORY_COLORS[t.category] ?? '#94a3b8';
   const catLabel = CATEGORY_LABELS[t.category] ?? t.category;
+  const monthlyAmount = t.frequency === 'yearly'
+    ? Math.round((t.amount / 12) * 100) / 100
+    : null;
+  const amountDisplay = monthlyAmount !== null
+    ? `${formatCurrency(monthlyAmount)}<span class="text-muted" style="font-size:0.75em">/mo</span>`
+    : formatCurrency(t.amount);
   return `
     <div class="expense-row" data-id="${t.id}">
       <span class="expense-note">${escapeHtml(t.name)}</span>
       <span class="badge" style="background:${color}22; color:${color}; border:1px solid ${color}44">${catLabel}</span>
       <span class="text-muted">${frequencyLabel(t.frequency)}</span>
-      <span class="expense-amount mono">${formatCurrency(t.amount)}</span>
+      <span class="expense-amount mono">${amountDisplay}</span>
       <button
         class="icon-btn delete-btn"
         data-action="delete-recurring"
@@ -76,11 +88,8 @@ function addRecurringModal(): string {
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="monthly" selected>Monthly</option>
+              <option value="yearly">Yearly (spread monthly)</option>
             </select>
-          </div>
-          <div class="form-group">
-            <label for="rec-start">Start Date</label>
-            <input type="date" id="rec-start" class="input" value="${todayISO()}" required />
           </div>
           <div id="recurring-form-error" class="form-error hidden"></div>
           <div class="modal-footer">

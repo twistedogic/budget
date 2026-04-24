@@ -14,7 +14,7 @@ export function renderBurnRateCards(state: AppState): string {
         <span class="burn-icon" aria-hidden="true">🔥</span>
         <span class="card-value mono ${dailyColor}">${formatCurrencyDecimal(Math.max(0, dailyBurnRate))}</span>
       </div>
-      <div class="card-sub">per day remaining</div>
+      <div class="card-sub">spent today (excl. recurring)</div>
     </div>
     <div class="card">
       <div class="card-label">Weekly Burn Rate</div>
@@ -22,7 +22,7 @@ export function renderBurnRateCards(state: AppState): string {
         <span class="burn-icon" aria-hidden="true">📈</span>
         <span class="card-value mono ${weeklyColor}">${formatCurrencyDecimal(Math.max(0, weeklyBurnRate))}</span>
       </div>
-      <div class="card-sub">per week remaining</div>
+      <div class="card-sub">avg daily / last 7 days (excl. recurring)</div>
     </div>
   `;
 }

@@ -1,5 +1,5 @@
-export type Category = 'food' | 'transport' | 'entertainment' | 'home_repair' | 'others';
-export type Frequency = 'daily' | 'weekly' | 'monthly';
+export type Category = 'education' | 'entertainment' | 'food' | 'home' | 'others' | 'transport';
+export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface Expense {
   id?: number;
@@ -23,4 +23,5 @@ export interface RecurringTemplate {
 export interface Settings {
   id?: number;
   monthlyBudget: number;
+  incidentThresholdPct: number; // 0–100, default 10
 }

@@ -12,7 +12,6 @@ import {
   getDailySpendSeries,
   getCategorySpend,
   getCategoryDailySeries,
-  INCIDENT_THRESHOLD,
 } from './calculations';
 import type { Expense } from './types';
 
@@ -47,31 +46,65 @@ describe('getRemainingBudget', () => {
   });
 });
 
-describe('getWeeklyBurnRate', () => {
-  it('multiplies daily by 7', () => expect(getWeeklyBurnRate(100)).toBe(700));
-  it('handles zero', () => expect(getWeeklyBurnRate(0)).toBe(0));
-  it('handles fractional daily rate', () => expect(getWeeklyBurnRate(10.5)).toBeCloseTo(73.5));
+describe('getDailyBurnRate', () => {
+  it('returns sum of non-recurring expenses for today', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const expenses: Expense[] = [
+      mkExp(today, 100),
+      mkExp(today, 200),
+      mkExp(today, 50, 'transport'), // also today, no recurringId
+    ];
+    expect(getDailyBurnRate(expenses)).toBe(350);
+  });
+  it('excludes recurring expenses', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const expenses: Expense[] = [
+      mkExp(today, 100),
+      { ...mkExp(today, 5000), recurringId: 1 },
+    ];
+    expect(getDailyBurnRate(expenses)).toBe(100);
+  });
+  it('returns 0 with no expenses today', () => {
+    expect(getDailyBurnRate([])).toBe(0);
+  });
 });
 
-describe('getDailyBurnRate', () => {
-  it('returns positive value for mid-month', () => {
-    const now = new Date();
-    const rate = getDailyBurnRate(30000, now.getFullYear(), now.getMonth());
-    expect(rate).toBeGreaterThanOrEqual(0);
+describe('getWeeklyBurnRate', () => {
+  it('returns average daily non-recurring spend over last 7 days', () => {
+    const today = new Date();
+    const expenses: Expense[] = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      return mkExp(d.toISOString().slice(0, 10), 700);
+    });
+    expect(getWeeklyBurnRate(expenses)).toBeCloseTo(700);
   });
-  it('divides remaining by days left in month', () => {
-    // Use a fixed date scenario conceptually — just check it returns a finite number
-    const rate = getDailyBurnRate(10000, 2024, 0);
-    expect(isFinite(rate)).toBe(true);
+  it('excludes recurring expenses', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const expenses: Expense[] = [
+      mkExp(today, 700),
+      { ...mkExp(today, 9999), recurringId: 2 },
+    ];
+    expect(getWeeklyBurnRate(expenses)).toBeCloseTo(100); // 700 / 7
+  });
+  it('returns 0 with no expenses', () => {
+    expect(getWeeklyBurnRate([])).toBe(0);
   });
 });
 
 describe('isIncident', () => {
-  it('returns true below threshold', () => expect(isIncident(INCIDENT_THRESHOLD - 1)).toBe(true));
-  it('returns false above threshold', () => expect(isIncident(INCIDENT_THRESHOLD + 1)).toBe(false));
-  it('returns false at exactly threshold', () => expect(isIncident(INCIDENT_THRESHOLD)).toBe(false));
-  it('returns true for negative budget', () => expect(isIncident(-100)).toBe(true));
-  it('returns true for zero', () => expect(isIncident(0)).toBe(true));
+  const budget = 100_000;
+  const pct = 10; // 10% of 100_000 = 10_000
+  it('returns true when remaining is below threshold %', () => expect(isIncident(9_999, budget, pct)).toBe(true));
+  it('returns false when remaining is above threshold %', () => expect(isIncident(10_001, budget, pct)).toBe(false));
+  it('returns false at exactly threshold %', () => expect(isIncident(10_000, budget, pct)).toBe(false));
+  it('returns true for negative remaining', () => expect(isIncident(-100, budget, pct)).toBe(true));
+  it('returns true for zero remaining', () => expect(isIncident(0, budget, pct)).toBe(true));
+  it('returns false when no budget configured', () => expect(isIncident(0, 0, pct)).toBe(false));
+  it('respects custom threshold percentage', () => {
+    expect(isIncident(24_999, budget, 25)).toBe(true);
+    expect(isIncident(25_001, budget, 25)).toBe(false);
+  });
 });
 
 describe('getTrendDirection', () => {
@@ -145,46 +178,59 @@ describe('getCategorySpend', () => {
       mkExp('2024-01-01', 10, 'food'),
       mkExp('2024-01-01', 20, 'transport'),
       mkExp('2024-01-01', 30, 'entertainment'),
-      mkExp('2024-01-01', 40, 'home_repair'),
+      mkExp('2024-01-01', 40, 'home'),
       mkExp('2024-01-01', 50, 'others'),
+      mkExp('2024-01-01', 60, 'education'),
     ];
     const result = getCategorySpend(expenses);
     expect(result['food']).toBe(10);
     expect(result['transport']).toBe(20);
     expect(result['entertainment']).toBe(30);
-    expect(result['home_repair']).toBe(40);
+    expect(result['home']).toBe(40);
     expect(result['others']).toBe(50);
+    expect(result['education']).toBe(60);
   });
 });
 
 describe('getDaysWithPositiveBudget', () => {
-  it('returns all spend days when cumulative spend is within budget', () => {
-    const expenses = [mkExp('2024-01-01', 100), mkExp('2024-01-02', 200)];
-    const days = getDaysWithPositiveBudget(expenses, 1000);
-    expect(days).toHaveLength(2);
+  it('counts days where spend is below daily budget', () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    // daily budget = 3000 / 31 ≈ 96.77 per day; spend 50 → good day
+    const d1 = `${year}-${month}-01`;
+    const expenses = [mkExp(d1, 50)];
+    const days = getDaysWithPositiveBudget(expenses, 3000);
+    expect(days).toContain(1);
   });
-  it('excludes days where cumulative spend exceeds budget', () => {
-    const expenses = [mkExp('2024-01-01', 900), mkExp('2024-01-02', 200)];
-    const days = getDaysWithPositiveBudget(expenses, 1000);
-    expect(days).toHaveLength(1);
+  it('excludes days where spend meets or exceeds daily budget', () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate();
+    const dailyBudget = 3000 / daysInMonth;
+    const d1 = `${year}-${month}-01`;
+    const expenses = [mkExp(d1, dailyBudget + 1)];
+    const days = getDaysWithPositiveBudget(expenses, 3000);
+    expect(days).not.toContain(1);
   });
-  it('returns empty array for no expenses', () => {
-    expect(getDaysWithPositiveBudget([], 1000)).toHaveLength(0);
+  it('returns empty array for no expenses (days elapsed have 0 spend = good)', () => {
+    // 0 spend per day < any positive daily budget → all elapsed days are good
+    const days = getDaysWithPositiveBudget([], 1000);
+    expect(days.length).toBe(new Date().getDate());
   });
-  it('excludes all days when budget is zero', () => {
-    const expenses = [mkExp('2024-01-01', 1)];
-    const days = getDaysWithPositiveBudget(expenses, 0);
+  it('returns empty array when budget is zero', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const days = getDaysWithPositiveBudget([mkExp(today, 0)], 0);
     expect(days).toHaveLength(0);
   });
 });
 
 describe('getPositiveDays', () => {
-  it('returns count of positive budget days', () => {
-    const expenses = [mkExp('2024-01-01', 100), mkExp('2024-01-02', 200)];
-    expect(getPositiveDays(expenses, 1000)).toBe(2);
-  });
-  it('returns 0 when no expenses', () => {
-    expect(getPositiveDays([], 500)).toBe(0);
+  it('returns count matching getDaysWithPositiveBudget', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const expenses = [mkExp(today, 1)];
+    expect(getPositiveDays(expenses, 1000)).toBe(getDaysWithPositiveBudget(expenses, 1000).length);
   });
 });
 
@@ -195,6 +241,9 @@ describe('getSloPercentage', () => {
     const slo = getSloPercentage(expenses, 10000);
     expect(slo).toBeGreaterThanOrEqual(0);
     expect(slo).toBeLessThanOrEqual(100);
+  });
+  it('returns 100 when budget is zero (unconfigured)', () => {
+    expect(getSloPercentage([], 0)).toBe(100);
   });
 });
 

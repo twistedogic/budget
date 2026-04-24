@@ -32,7 +32,7 @@ type Listener = (state: AppState) => void;
 const listeners: Listener[] = [];
 
 export let state: AppState = {
-  settings: { monthlyBudget: 0 },
+  settings: { monthlyBudget: 0, incidentThresholdPct: 10 },
   expenses: [],
   recurring: [],
   incidentDismissed: false,
@@ -58,17 +58,14 @@ export function setState(partial: Partial<AppState>): void {
 }
 
 function recompute(): void {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
   const { monthlyBudget } = state.settings;
   const { expenses } = state;
 
   const remaining = getRemainingBudget(monthlyBudget, expenses);
-  const daily = getDailyBurnRate(remaining, year, month);
-  const weekly = getWeeklyBurnRate(daily);
+  const daily = getDailyBurnRate(expenses);
+  const weekly = getWeeklyBurnRate(expenses);
   const slo = getSloPercentage(expenses, monthlyBudget);
-  const incident = isIncident(remaining);
+  const incident = isIncident(remaining, monthlyBudget, state.settings.incidentThresholdPct);
   const dailySeries = getDailySpendSeries(expenses, 30);
   const categorySpend = getCategorySpend(expenses);
 

@@ -11,6 +11,7 @@ import { renderAddExpenseModal } from './components/AddExpenseModal';
 import { renderRecurringPanel } from './components/RecurringPanel';
 import { renderSettingsPanel } from './components/SettingsPanel';
 import { drawSparkline } from './utils/sparkline';
+import { todayISO } from './utils/format';
 import { getCategoryDailySeries, CATEGORIES, CATEGORY_COLORS } from './calculations';
 import {
   saveMonthlyBudget,
@@ -20,6 +21,7 @@ import {
   deleteRecurring,
   getExpensesForMonth,
   getAllRecurring,
+  saveIncidentThreshold,
 } from './db';
 import type { Category, Frequency } from './types';
 
@@ -145,6 +147,14 @@ function attachEvents(el: HTMLElement): void {
     });
   }
 
+  const settingsThresholdInput = el.querySelector<HTMLInputElement>('#settings-threshold-input');
+  if (settingsThresholdInput) {
+    settingsThresholdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveSettingsThreshold();
+      if (e.key === 'Escape') closeSettingsPanel();
+    });
+  }
+
   // Global ESC key to close modals
   document.addEventListener(
     'keydown',
@@ -183,6 +193,10 @@ function handleClick(e: Event): void {
 
     case 'open-settings':
       openSettingsPanel();
+      break;
+
+    case 'save-settings-threshold':
+      saveSettingsThreshold();
       break;
 
     case 'close-settings':
@@ -324,6 +338,26 @@ function saveSettingsBudget(): void {
   })();
 }
 
+function saveSettingsThreshold(): void {
+  const input = document.getElementById('settings-threshold-input') as HTMLInputElement | null;
+  const errorEl = document.getElementById('settings-threshold-error');
+  if (!input) return;
+
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 1 || val > 100) {
+    showFormError(errorEl, 'Please enter a percentage between 1 and 100.');
+    return;
+  }
+
+  void (async () => {
+    await saveIncidentThreshold(val);
+    setState({
+      settings: { ...state.settings, incidentThresholdPct: val },
+    });
+    closeSettingsPanel();
+  })();
+}
+
 // ----- Expense actions -----
 
 async function handleAddExpense(form: HTMLFormElement): Promise<void> {
@@ -368,14 +402,13 @@ async function handleAddRecurring(form: HTMLFormElement): Promise<void> {
   const amountEl = form.querySelector<HTMLInputElement>('#rec-amount');
   const categoryEl = form.querySelector<HTMLSelectElement>('#rec-category');
   const freqEl = form.querySelector<HTMLSelectElement>('#rec-frequency');
-  const startEl = form.querySelector<HTMLInputElement>('#rec-start');
   const errorEl = form.querySelector<HTMLElement>('#recurring-form-error');
 
   const name = nameEl?.value?.trim() ?? '';
   const amount = parseFloat(amountEl?.value ?? '');
   const category = (categoryEl?.value ?? 'others') as Category;
   const frequency = (freqEl?.value ?? 'monthly') as Frequency;
-  const startDate = startEl?.value ?? '';
+  const startDate = todayISO();
 
   if (!name) {
     showFormError(errorEl, 'Please enter a name.');
@@ -383,10 +416,6 @@ async function handleAddRecurring(form: HTMLFormElement): Promise<void> {
   }
   if (isNaN(amount) || amount <= 0) {
     showFormError(errorEl, 'Please enter a valid amount.');
-    return;
-  }
-  if (!startDate) {
-    showFormError(errorEl, 'Please select a start date.');
     return;
   }
 

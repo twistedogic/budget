@@ -3,27 +3,30 @@ import type { Expense } from './types';
 export const INCIDENT_THRESHOLD = 10_000;
 
 export const CATEGORIES = [
-  'food',
-  'transport',
+  'education',
   'entertainment',
-  'home_repair',
+  'food',
+  'home',
   'others',
+  'transport',
 ] as const;
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  food: 'Food',
-  transport: 'Transport',
+  education: 'Education',
   entertainment: 'Entertainment',
-  home_repair: 'Home Repair',
+  food: 'Food',
+  home: 'Home',
   others: 'Others',
+  transport: 'Transport',
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  food: '#f59e0b',
-  transport: '#60a5fa',
+  education: '#f472b6',
   entertainment: '#a78bfa',
-  home_repair: '#34d399',
+  food: '#f59e0b',
+  home: '#fb923c',
   others: '#94a3b8',
+  transport: '#60a5fa',
 };
 
 export function getDaysInMonth(year: number, month: number): number {
@@ -35,32 +38,48 @@ export function getRemainingBudget(monthlyBudget: number, expenses: Expense[]): 
   return monthlyBudget - spent;
 }
 
-export function getDailyBurnRate(remaining: number, year: number, month: number): number {
-  const today = new Date();
-  const lastDay = getDaysInMonth(year, month);
-  const daysLeft = lastDay - today.getDate() + 1;
-  return daysLeft > 0 ? remaining / daysLeft : 0;
+export function getDailyBurnRate(expenses: Expense[]): number {
+  const today = new Date().toISOString().slice(0, 10);
+  return expenses
+    .filter((e) => e.date === today && !e.recurringId)
+    .reduce((sum, e) => sum + e.amount, 0);
 }
 
-export function getWeeklyBurnRate(daily: number): number {
-  return daily * 7;
+export function getWeeklyBurnRate(expenses: Expense[]): number {
+  const today = new Date();
+  let total = 0;
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    total += expenses
+      .filter((e) => e.date === dateStr && !e.recurringId)
+      .reduce((sum, e) => sum + e.amount, 0);
+  }
+  return total / 7;
 }
 
 export function getDaysWithPositiveBudget(
   expenses: Expense[],
   monthlyBudget: number,
 ): number[] {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = getDaysInMonth(year, month);
+  const dailyBudget = monthlyBudget / daysInMonth;
+
   const byDate = new Map<string, number>();
   for (const e of expenses) {
     byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount);
   }
-  const sorted = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  let running = 0;
+
   const positiveDays: number[] = [];
-  sorted.forEach(([, amt], i) => {
-    running += amt;
-    if (running <= monthlyBudget) positiveDays.push(i + 1);
-  });
+  for (let day = 1; day <= today.getDate(); day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const spent = byDate.get(dateStr) ?? 0;
+    if (spent < dailyBudget) positiveDays.push(day);
+  }
   return positiveDays;
 }
 
@@ -69,6 +88,7 @@ export function getPositiveDays(expenses: Expense[], monthlyBudget: number): num
 }
 
 export function getSloPercentage(expenses: Expense[], monthlyBudget: number): number {
+  if (monthlyBudget <= 0) return 100;
   const today = new Date();
   const totalDays = today.getDate();
   if (totalDays === 0) return 100;
@@ -76,8 +96,9 @@ export function getSloPercentage(expenses: Expense[], monthlyBudget: number): nu
   return Math.min(100, (positive / totalDays) * 100);
 }
 
-export function isIncident(remainingBudget: number): boolean {
-  return remainingBudget < INCIDENT_THRESHOLD;
+export function isIncident(remainingBudget: number, monthlyBudget: number, thresholdPct: number): boolean {
+  if (monthlyBudget <= 0) return false;
+  return remainingBudget < (monthlyBudget * thresholdPct) / 100;
 }
 
 export function getTrendDirection(

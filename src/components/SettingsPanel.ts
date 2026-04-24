@@ -3,6 +3,7 @@ import { formatCurrency } from '../utils/format';
 
 export function renderSettingsPanel(state: AppState): string {
   const budget = state.settings.monthlyBudget;
+  const thresholdPct = state.settings.incidentThresholdPct ?? 10;
 
   return `
     <div class="modal-backdrop hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -53,6 +54,39 @@ export function renderSettingsPanel(state: AppState): string {
           <p class="settings-hint">
             Tip: set your budget once and it persists across sessions.
           </p>
+        </section>
+
+        <!-- Incident Threshold section -->
+        <section class="settings-section">
+          <div class="settings-section-header">
+            <span class="settings-section-icon">🚨</span>
+            <div>
+              <div class="settings-section-title">Incident Threshold</div>
+              <div class="settings-section-desc">
+                An incident alert fires when remaining budget drops below this percentage of your monthly budget.
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-input-row">
+            <div class="settings-input-wrap">
+              <input
+                type="number"
+                id="settings-threshold-input"
+                class="budget-input mono settings-budget-input"
+                value="${thresholdPct}"
+                min="1"
+                max="100"
+                step="1"
+                placeholder="10"
+                aria-label="Incident threshold percentage"
+              />
+              <span class="settings-input-prefix">%</span>
+            </div>
+            <button class="btn-primary" data-action="save-settings-threshold">Save</button>
+          </div>
+
+          <p class="form-error hidden" id="settings-threshold-error"></p>
         </section>
 
       </div>
