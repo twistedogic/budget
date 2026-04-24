@@ -1,20 +1,42 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Personal finance tracker framed as an SRE reliability dashboard. Budget = SLO, spending = error budget consumption, incidents fire when remaining budget drops below a configurable % of the monthly budget (default 10%).
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Tech stack: Vite + TypeScript (strict) + Dexie.js (IndexedDB) + Vitest + vite-plugin-pwa
+  No framework — components are pure functions returning HTML strings, full DOM replacement on every state change.
+
+  Architecture:
+  - state.ts: reactive store — setState() → recompute() → notify() → renderApp()
+  - calculations.ts: pure functions only, the only file with unit tests (Vitest, node env)
+  - db.ts: Dexie schema + all CRUD helpers; tables: expenses, recurring, settings
+  - ui.ts: renderApp() + event delegation via data-action attributes
+  - components/: one render*() → string function per file
+  - All CSS is inline in index.html <style> block — no .css files
+
+  Domain:
+  - Category: 'education' | 'entertainment' | 'food' | 'home' | 'others' | 'transport'
+  - Frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  - Monthly/yearly recurring expenses are dated the 1st of the month; yearly amount is amortized (÷12 per month)
+  - Daily burn rate = non-recurring spend today
+  - Weekly burn rate = avg daily non-recurring spend over last 7 days
+  - SLO % = days this month where daily spend < (monthlyBudget / daysInMonth)
+  - Incident fires when remaining < monthlyBudget × incidentThresholdPct / 100
+  - Only current month expenses are loaded into state
+
+  Conventions:
+  - Dates always YYYY-MM-DD strings; parse with new Date(str + 'T00:00:00') to avoid UTC offset issues
+  - Escape user input with escapeHtml() before interpolating into HTML
+  - Never mutate state directly — always use setState()
+  - After any DB write, reload from DB then call setState()
+  - All computed fields live in recompute() in state.ts — never compute them elsewhere
+  - Build base path is /budget/ for production (GitHub Pages), / for dev
+
+rules:
+  proposal:
+    - Reference affected files by path (e.g. src/calculations.ts)
+    - Note if DB schema changes are required
+  tasks:
+    - Each task must be verifiable — you know when it's done
+    - Include a verification group (run tests, typecheck) as the final task group
+    - Keep tasks scoped to single files or functions where possible
