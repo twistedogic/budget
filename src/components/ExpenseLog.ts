@@ -57,6 +57,7 @@ export function renderExpenseLog(state: AppState): string {
           <select class="select-sm" data-action="filter-category" aria-label="Filter by category">
             ${filterOptions}
           </select>
+          <button class="btn-ghost btn-sm" data-action="export-csv" ${sorted.length === 0 ? 'disabled' : ''}>↓ CSV</button>
           <button class="btn-primary btn-sm" data-action="open-add-expense">+ Add Expense</button>
         </div>
       </div>

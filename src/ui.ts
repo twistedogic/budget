@@ -1,6 +1,5 @@
 import { state, setState } from './state';
 import { renderAlertBanner } from './components/AlertBanner';
-import { renderBudgetCard } from './components/BudgetCard';
 import { renderRemainingCard } from './components/RemainingCard';
 import { renderBurnRateCards } from './components/BurnRateCard';
 import { renderSloMeter } from './components/SloMeter';
@@ -45,8 +44,7 @@ function buildHTML(): string {
       </button>
     </header>
 
-    <div class="grid-2 mt-section">
-      ${renderBudgetCard(s)}
+    <div class="mt-section">
       ${renderRemainingCard(s)}
     </div>
 
@@ -99,24 +97,6 @@ function attachEvents(el: HTMLElement): void {
   el.addEventListener('click', handleClick);
   el.addEventListener('change', handleChange);
   el.addEventListener('submit', handleSubmit);
-
-  // Budget inline edit: save on Enter / blur
-  const budgetInput = el.querySelector<HTMLInputElement>('#budget-input');
-  if (budgetInput) {
-    budgetInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') saveBudget();
-      if (e.key === 'Escape') cancelBudgetEdit();
-    });
-    budgetInput.addEventListener('blur', () => {
-      // Slight delay so "Save" button click can fire first
-      setTimeout(() => {
-        const editDiv = document.getElementById('budget-edit');
-        if (editDiv && !editDiv.classList.contains('hidden')) {
-          saveBudget();
-        }
-      }, 150);
-    });
-  }
 
   // Close modals on backdrop click
   const expModal = el.querySelector<HTMLElement>('#add-expense-modal');
@@ -179,18 +159,6 @@ function handleClick(e: Event): void {
       setState({ incidentDismissed: true });
       break;
 
-    case 'edit-budget':
-      showBudgetEdit();
-      break;
-
-    case 'save-budget':
-      saveBudget();
-      break;
-
-    case 'cancel-budget':
-      cancelBudgetEdit();
-      break;
-
     case 'open-settings':
       openSettingsPanel();
       break;
@@ -234,6 +202,10 @@ function handleClick(e: Event): void {
       if (id) void handleDeleteRecurring(id);
       break;
     }
+
+    case 'export-csv':
+      exportExpensesCsv();
+      break;
   }
 }
 
@@ -259,42 +231,34 @@ function handleSubmit(e: Event): void {
   }
 }
 
-// ----- Budget edit -----
+// ----- CSV export -----
 
-function showBudgetEdit(): void {
-  const display = document.getElementById('budget-display');
-  const edit = document.getElementById('budget-edit');
-  if (display && edit) {
-    display.classList.add('hidden');
-    edit.classList.remove('hidden');
-    document.getElementById('budget-input')?.focus();
-  }
-}
+function exportExpensesCsv(): void {
+  const { expenses, filterCategory } = state;
+  const filtered = filterCategory
+    ? expenses.filter((e) => e.category === filterCategory)
+    : expenses;
+  const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
 
-function cancelBudgetEdit(): void {
-  const display = document.getElementById('budget-display');
-  const edit = document.getElementById('budget-edit');
-  if (display && edit) {
-    edit.classList.add('hidden');
-    display.classList.remove('hidden');
-  }
-}
+  const rows = [
+    ['Date', 'Category', 'Note', 'Amount'],
+    ...sorted.map((e) => [
+      e.date,
+      e.category,
+      `"${e.note.replace(/"/g, '""')}"`,
+      e.amount.toFixed(2),
+    ]),
+  ];
 
-function saveBudget(): void {
-  const input = document.getElementById('budget-input') as HTMLInputElement | null;
-  if (!input) return;
-  const val = parseFloat(input.value);
-  if (isNaN(val) || val < 0) return;
-
-  void (async () => {
-    await saveMonthlyBudget(val);
-    const now = new Date();
-    const expenses = await getExpensesForMonth(now.getFullYear(), now.getMonth());
-    setState({
-      settings: { ...state.settings, monthlyBudget: val },
-      expenses,
-    });
-  })();
+  const csv = rows.map((r) => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  a.href = url;
+  a.download = `expenses-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ----- Settings panel -----
