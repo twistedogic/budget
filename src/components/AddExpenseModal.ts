@@ -1,7 +1,13 @@
 import { CATEGORIES, CATEGORY_LABELS } from '../calculations';
 import { todayISO } from '../utils/format';
 
-export function renderAddExpenseModal(): string {
+export function renderAddExpenseModal(viewedYear: number, viewedMonth: number): string {
+  const now = new Date();
+  const isCurrentMonth = viewedYear === now.getFullYear() && viewedMonth === now.getMonth();
+  const defaultDate = isCurrentMonth
+    ? todayISO()
+    : `${viewedYear}-${String(viewedMonth + 1).padStart(2, '0')}-01`;
+
   const categoryOptions = CATEGORIES.map(
     (c) => `<option value="${c}">${CATEGORY_LABELS[c]}</option>`,
   ).join('');
@@ -39,7 +45,7 @@ export function renderAddExpenseModal(): string {
               type="date"
               id="exp-date"
               class="input"
-              value="${todayISO()}"
+              value="${defaultDate}"
               required
             />
           </div>

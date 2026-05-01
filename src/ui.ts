@@ -32,12 +32,21 @@ export function renderApp(el: HTMLElement): void {
 
 function buildHTML(): string {
   const s = state;
+  const now = new Date();
+  const isCurrentMonth = s.viewedYear === now.getFullYear() && s.viewedMonth === now.getMonth();
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthLabel = `${MONTH_NAMES[s.viewedMonth]} ${s.viewedYear}`;
   return `
     ${renderAlertBanner(s)}
     <header class="app-header">
       <div>
         <h1 class="app-title">Budget SLO Dashboard</h1>
         <p class="app-subtitle">Your personal finance reliability tracker</p>
+      </div>
+      <div class="month-nav">
+        <button class="month-nav-btn" data-action="prev-month" aria-label="Previous month">&#8249;</button>
+        <span class="month-nav-label${isCurrentMonth ? '' : ' month-nav-label--historical'}">${monthLabel}${isCurrentMonth ? '' : ' <span class="historical-badge">historical</span>'}</span>
+        <button class="month-nav-btn" data-action="next-month" aria-label="Next month">&#8250;</button>
       </div>
       <button class="btn-ghost btn-settings" data-action="open-settings" aria-label="Open settings">
         ⚙ Settings
@@ -69,12 +78,17 @@ function buildHTML(): string {
       ${renderRecurringPanel(s)}
     </div>
 
-    ${renderAddExpenseModal()}
+    ${renderAddExpenseModal(s.viewedYear, s.viewedMonth)}
     ${renderSettingsPanel(s)}
   `;
 }
 
 function drawAllSparklines(): void {
+  const now = new Date();
+  const { viewedYear, viewedMonth } = state;
+  const isCurrentMonth = viewedYear === now.getFullYear() && viewedMonth === now.getMonth();
+  const referenceDate = isCurrentMonth ? now : new Date(viewedYear, viewedMonth + 1, 0);
+
   // Main 30-day sparkline
   const mainCanvas = document.getElementById('sparkline-main') as HTMLCanvasElement | null;
   if (mainCanvas) {
@@ -86,7 +100,7 @@ function drawAllSparklines(): void {
   for (const cat of CATEGORIES) {
     const canvas = document.getElementById(`sparkline-cat-${cat}`) as HTMLCanvasElement | null;
     if (canvas) {
-      const data = getCategoryDailySeries(state.expenses, cat, 30);
+      const data = getCategoryDailySeries(state.expenses, cat, 30, referenceDate);
       const color = CATEGORY_COLORS[cat] ?? '#94a3b8';
       drawSparkline(canvas, data, color);
     }
@@ -206,6 +220,14 @@ function handleClick(e: Event): void {
     case 'export-csv':
       exportExpensesCsv();
       break;
+
+    case 'prev-month':
+      void handlePrevMonth();
+      break;
+
+    case 'next-month':
+      void handleNextMonth();
+      break;
   }
 }
 
@@ -254,9 +276,8 @@ function exportExpensesCsv(): void {
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const now = new Date();
   a.href = url;
-  a.download = `expenses-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.csv`;
+  a.download = `expenses-${state.viewedYear}-${String(state.viewedMonth + 1).padStart(2, '0')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -292,8 +313,7 @@ function saveSettingsBudget(): void {
 
   void (async () => {
     await saveMonthlyBudget(val);
-    const now = new Date();
-    const expenses = await getExpensesForMonth(now.getFullYear(), now.getMonth());
+    const expenses = await getExpensesForMonth(state.viewedYear, state.viewedMonth);
     setState({
       settings: { ...state.settings, monthlyBudget: val },
       expenses,
@@ -346,17 +366,31 @@ async function handleAddExpense(form: HTMLFormElement): Promise<void> {
   }
 
   await addExpense({ amount, category, date, note });
-  const now = new Date();
-  const expenses = await getExpensesForMonth(now.getFullYear(), now.getMonth());
+  const expenses = await getExpensesForMonth(state.viewedYear, state.viewedMonth);
   setState({ expenses, incidentDismissed: false });
   closeAddExpenseModal();
 }
 
 async function handleDeleteExpense(id: number): Promise<void> {
   await deleteExpense(id);
-  const now = new Date();
-  const expenses = await getExpensesForMonth(now.getFullYear(), now.getMonth());
+  const expenses = await getExpensesForMonth(state.viewedYear, state.viewedMonth);
   setState({ expenses });
+}
+
+async function handlePrevMonth(): Promise<void> {
+  let year = state.viewedYear;
+  let month = state.viewedMonth - 1;
+  if (month < 0) { month = 11; year -= 1; }
+  const expenses = await getExpensesForMonth(year, month);
+  setState({ viewedYear: year, viewedMonth: month, expenses, incidentDismissed: false });
+}
+
+async function handleNextMonth(): Promise<void> {
+  let year = state.viewedYear;
+  let month = state.viewedMonth + 1;
+  if (month > 11) { month = 0; year += 1; }
+  const expenses = await getExpensesForMonth(year, month);
+  setState({ viewedYear: year, viewedMonth: month, expenses, incidentDismissed: false });
 }
 
 // ----- Recurring actions -----

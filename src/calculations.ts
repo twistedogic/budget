@@ -33,25 +33,28 @@ export function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function getRemainingBudget(monthlyBudget: number, expenses: Expense[]): number {
   const spent = expenses.reduce((sum, e) => sum + e.amount, 0);
   return monthlyBudget - spent;
 }
 
-export function getDailyBurnRate(expenses: Expense[]): number {
-  const today = new Date().toISOString().slice(0, 10);
+export function getDailyBurnRate(expenses: Expense[], referenceDate: Date): number {
+  const dateStr = toLocalDateStr(referenceDate);
   return expenses
-    .filter((e) => e.date === today && !e.recurringId)
+    .filter((e) => e.date === dateStr && !e.recurringId)
     .reduce((sum, e) => sum + e.amount, 0);
 }
 
-export function getWeeklyBurnRate(expenses: Expense[]): number {
-  const today = new Date();
+export function getWeeklyBurnRate(expenses: Expense[], referenceDate: Date): number {
   let total = 0;
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
+    const d = new Date(referenceDate);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = toLocalDateStr(d);
     total += expenses
       .filter((e) => e.date === dateStr && !e.recurringId)
       .reduce((sum, e) => sum + e.amount, 0);
@@ -62,10 +65,10 @@ export function getWeeklyBurnRate(expenses: Expense[]): number {
 export function getDaysWithPositiveBudget(
   expenses: Expense[],
   monthlyBudget: number,
+  referenceDate: Date,
 ): number[] {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
   const dailyBudget = monthlyBudget / daysInMonth;
 
@@ -75,7 +78,7 @@ export function getDaysWithPositiveBudget(
   }
 
   const positiveDays: number[] = [];
-  for (let day = 1; day <= today.getDate(); day++) {
+  for (let day = 1; day <= referenceDate.getDate(); day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const spent = byDate.get(dateStr) ?? 0;
     if (spent < dailyBudget) positiveDays.push(day);
@@ -83,16 +86,15 @@ export function getDaysWithPositiveBudget(
   return positiveDays;
 }
 
-export function getPositiveDays(expenses: Expense[], monthlyBudget: number): number {
-  return getDaysWithPositiveBudget(expenses, monthlyBudget).length;
+export function getPositiveDays(expenses: Expense[], monthlyBudget: number, referenceDate: Date): number {
+  return getDaysWithPositiveBudget(expenses, monthlyBudget, referenceDate).length;
 }
 
-export function getSloPercentage(expenses: Expense[], monthlyBudget: number): number {
+export function getSloPercentage(expenses: Expense[], monthlyBudget: number, referenceDate: Date): number {
   if (monthlyBudget <= 0) return 100;
-  const today = new Date();
-  const totalDays = today.getDate();
+  const totalDays = referenceDate.getDate();
   if (totalDays === 0) return 100;
-  const positive = getPositiveDays(expenses, monthlyBudget);
+  const positive = getPositiveDays(expenses, monthlyBudget, referenceDate);
   return Math.min(100, (positive / totalDays) * 100);
 }
 
@@ -115,13 +117,13 @@ export function getTrendDirection(
 export function getDailySpendSeries(
   expenses: Expense[],
   days: number,
+  referenceDate: Date,
 ): { date: string; amount: number }[] {
   const result: { date: string; amount: number }[] = [];
-  const today = new Date();
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
+    const d = new Date(referenceDate);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = toLocalDateStr(d);
     const amount = expenses
       .filter((e) => e.date === dateStr)
       .reduce((s, e) => s + e.amount, 0);
@@ -142,12 +144,12 @@ export function getCategoryDailySeries(
   expenses: Expense[],
   category: string,
   days: number,
+  referenceDate: Date,
 ): number[] {
-  const today = new Date();
   return Array.from({ length: days }, (_, i) => {
-    const d = new Date(today);
+    const d = new Date(referenceDate);
     d.setDate(d.getDate() - (days - 1 - i));
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = toLocalDateStr(d);
     return expenses
       .filter((e) => e.date === dateStr && e.category === category)
       .reduce((s, e) => s + e.amount, 0);

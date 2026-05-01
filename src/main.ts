@@ -83,7 +83,13 @@ async function init(): Promise<void> {
     const expenses = await getExpensesForMonth(now.getFullYear(), now.getMonth());
     const updatedRecurring = await getAllRecurring();
 
-    setState({ settings, expenses, recurring: updatedRecurring });
+    setState({
+      settings,
+      expenses,
+      recurring: updatedRecurring,
+      viewedYear: now.getFullYear(),
+      viewedMonth: now.getMonth(),
+    });
 
     renderApp(app);
 

@@ -481,6 +481,65 @@
     /* ─── Utilities ──────────────────────────────────────── */
     .hidden { display: none !important; }
 
+    /* ─── Month Navigation ───────────────────────────────── */
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      align-self: center;
+    }
+
+    .month-nav-btn {
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
+      font-family: var(--font-sans);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .month-nav-btn:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+
+    .month-nav-label {
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      min-width: 130px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .month-nav-label--historical {
+      color: var(--text-muted);
+    }
+
+    .historical-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      background: var(--card-border);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 1px 5px;
+      vertical-align: middle;
+      margin-left: 4px;
+      font-family: var(--font-sans);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
     /* ─── Settings Button ───────────────────────────────── */
     .btn-settings {
       display: flex;

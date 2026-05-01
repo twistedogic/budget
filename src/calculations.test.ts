@@ -22,6 +22,12 @@ const mkExp = (date: string, amount: number, category: Expense['category'] = 'fo
   note: '',
 });
 
+const REF = new Date('2024-03-15T00:00:00');
+
+function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 describe('getDaysInMonth', () => {
   it('returns 31 for January', () => expect(getDaysInMonth(2024, 0)).toBe(31));
   it('returns 28 for February 2023', () => expect(getDaysInMonth(2023, 1)).toBe(28));
@@ -47,48 +53,48 @@ describe('getRemainingBudget', () => {
 });
 
 describe('getDailyBurnRate', () => {
-  it('returns sum of non-recurring expenses for today', () => {
-    const today = new Date().toISOString().slice(0, 10);
+  it('returns sum of non-recurring expenses for referenceDate', () => {
     const expenses: Expense[] = [
-      mkExp(today, 100),
-      mkExp(today, 200),
-      mkExp(today, 50, 'transport'), // also today, no recurringId
+      mkExp('2024-03-15', 100),
+      mkExp('2024-03-15', 200),
+      mkExp('2024-03-15', 50, 'transport'),
     ];
-    expect(getDailyBurnRate(expenses)).toBe(350);
+    expect(getDailyBurnRate(expenses, REF)).toBe(350);
   });
   it('excludes recurring expenses', () => {
-    const today = new Date().toISOString().slice(0, 10);
     const expenses: Expense[] = [
-      mkExp(today, 100),
-      { ...mkExp(today, 5000), recurringId: 1 },
+      mkExp('2024-03-15', 100),
+      { ...mkExp('2024-03-15', 5000), recurringId: 1 },
     ];
-    expect(getDailyBurnRate(expenses)).toBe(100);
+    expect(getDailyBurnRate(expenses, REF)).toBe(100);
   });
-  it('returns 0 with no expenses today', () => {
-    expect(getDailyBurnRate([])).toBe(0);
+  it('returns 0 with no expenses', () => {
+    expect(getDailyBurnRate([], REF)).toBe(0);
+  });
+  it('ignores expenses on other dates', () => {
+    const expenses: Expense[] = [mkExp('2024-03-14', 999)];
+    expect(getDailyBurnRate(expenses, REF)).toBe(0);
   });
 });
 
 describe('getWeeklyBurnRate', () => {
   it('returns average daily non-recurring spend over last 7 days', () => {
-    const today = new Date();
     const expenses: Expense[] = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today);
+      const d = new Date(REF);
       d.setDate(d.getDate() - i);
-      return mkExp(d.toISOString().slice(0, 10), 700);
+      return mkExp(toLocalDateStr(d), 700);
     });
-    expect(getWeeklyBurnRate(expenses)).toBeCloseTo(700);
+    expect(getWeeklyBurnRate(expenses, REF)).toBeCloseTo(700);
   });
   it('excludes recurring expenses', () => {
-    const today = new Date().toISOString().slice(0, 10);
     const expenses: Expense[] = [
-      mkExp(today, 700),
-      { ...mkExp(today, 9999), recurringId: 2 },
+      mkExp('2024-03-15', 700),
+      { ...mkExp('2024-03-15', 9999), recurringId: 2 },
     ];
-    expect(getWeeklyBurnRate(expenses)).toBeCloseTo(100); // 700 / 7
+    expect(getWeeklyBurnRate(expenses, REF)).toBeCloseTo(100); // 700 / 7
   });
   it('returns 0 with no expenses', () => {
-    expect(getWeeklyBurnRate([])).toBe(0);
+    expect(getWeeklyBurnRate([], REF)).toBe(0);
   });
 });
 
@@ -133,25 +139,24 @@ describe('getTrendDirection', () => {
 
 describe('getDailySpendSeries', () => {
   it('returns correct number of days', () => {
-    expect(getDailySpendSeries([], 7)).toHaveLength(7);
-    expect(getDailySpendSeries([], 30)).toHaveLength(30);
+    expect(getDailySpendSeries([], 7, REF)).toHaveLength(7);
+    expect(getDailySpendSeries([], 30, REF)).toHaveLength(30);
   });
   it('returns zero amounts when no expenses', () => {
-    const series = getDailySpendSeries([], 7);
+    const series = getDailySpendSeries([], 7, REF);
     series.forEach((s) => expect(s.amount).toBe(0));
   });
-  it('aggregates spend for today', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const expenses = [mkExp(today, 50), mkExp(today, 75)];
-    const series = getDailySpendSeries(expenses, 1);
+  it('aggregates spend for referenceDate', () => {
+    const expenses = [mkExp('2024-03-15', 50), mkExp('2024-03-15', 75)];
+    const series = getDailySpendSeries(expenses, 1, REF);
     expect(series[0].amount).toBe(125);
   });
   it('each entry has a date string', () => {
-    const series = getDailySpendSeries([], 3);
+    const series = getDailySpendSeries([], 3, REF);
     series.forEach((s) => expect(s.date).toMatch(/^\d{4}-\d{2}-\d{2}$/));
   });
   it('dates are in ascending order', () => {
-    const series = getDailySpendSeries([], 5);
+    const series = getDailySpendSeries([], 5, REF);
     for (let i = 1; i < series.length; i++) {
       expect(series[i].date >= series[i - 1].date).toBe(true);
     }
@@ -194,71 +199,58 @@ describe('getCategorySpend', () => {
 
 describe('getDaysWithPositiveBudget', () => {
   it('counts days where spend is below daily budget', () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    // daily budget = 3000 / 31 ≈ 96.77 per day; spend 50 → good day
-    const d1 = `${year}-${month}-01`;
-    const expenses = [mkExp(d1, 50)];
-    const days = getDaysWithPositiveBudget(expenses, 3000);
+    // March 2024 has 31 days; daily budget = 3000 / 31 ≈ 96.77; spend 50 → good day
+    const expenses = [mkExp('2024-03-01', 50)];
+    const days = getDaysWithPositiveBudget(expenses, 3000, REF);
     expect(days).toContain(1);
   });
   it('excludes days where spend meets or exceeds daily budget', () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate();
+    const daysInMonth = getDaysInMonth(2024, 2); // March
     const dailyBudget = 3000 / daysInMonth;
-    const d1 = `${year}-${month}-01`;
-    const expenses = [mkExp(d1, dailyBudget + 1)];
-    const days = getDaysWithPositiveBudget(expenses, 3000);
+    const expenses = [mkExp('2024-03-01', dailyBudget + 1)];
+    const days = getDaysWithPositiveBudget(expenses, 3000, REF);
     expect(days).not.toContain(1);
   });
-  it('returns empty array for no expenses (days elapsed have 0 spend = good)', () => {
-    // 0 spend per day < any positive daily budget → all elapsed days are good
-    const days = getDaysWithPositiveBudget([], 1000);
-    expect(days.length).toBe(new Date().getDate());
+  it('returns all elapsed days for no expenses (0 spend < any positive daily budget)', () => {
+    const days = getDaysWithPositiveBudget([], 1000, REF);
+    expect(days.length).toBe(REF.getDate()); // 15 days (Mar 1–15)
   });
   it('returns empty array when budget is zero', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const days = getDaysWithPositiveBudget([mkExp(today, 0)], 0);
+    const days = getDaysWithPositiveBudget([mkExp('2024-03-01', 0)], 0, REF);
     expect(days).toHaveLength(0);
   });
 });
 
 describe('getPositiveDays', () => {
   it('returns count matching getDaysWithPositiveBudget', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const expenses = [mkExp(today, 1)];
-    expect(getPositiveDays(expenses, 1000)).toBe(getDaysWithPositiveBudget(expenses, 1000).length);
+    const expenses = [mkExp('2024-03-01', 1)];
+    expect(getPositiveDays(expenses, 1000, REF)).toBe(getDaysWithPositiveBudget(expenses, 1000, REF).length);
   });
 });
 
 describe('getSloPercentage', () => {
   it('returns value between 0 and 100', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const expenses = [mkExp(today, 100)];
-    const slo = getSloPercentage(expenses, 10000);
+    const expenses = [mkExp('2024-03-15', 100)];
+    const slo = getSloPercentage(expenses, 10000, REF);
     expect(slo).toBeGreaterThanOrEqual(0);
     expect(slo).toBeLessThanOrEqual(100);
   });
   it('returns 100 when budget is zero (unconfigured)', () => {
-    expect(getSloPercentage([], 0)).toBe(100);
+    expect(getSloPercentage([], 0, REF)).toBe(100);
   });
 });
 
 describe('getCategoryDailySeries', () => {
   it('returns correct length', () => {
-    expect(getCategoryDailySeries([], 'food', 7)).toHaveLength(7);
+    expect(getCategoryDailySeries([], 'food', 7, REF)).toHaveLength(7);
   });
   it('only counts matching category', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const expenses = [mkExp(today, 100, 'food'), mkExp(today, 50, 'transport')];
-    const series = getCategoryDailySeries(expenses, 'food', 1);
+    const expenses = [mkExp('2024-03-15', 100, 'food'), mkExp('2024-03-15', 50, 'transport')];
+    const series = getCategoryDailySeries(expenses, 'food', 1, REF);
     expect(series[0]).toBe(100);
   });
   it('returns zeros when no expenses for category', () => {
-    const series = getCategoryDailySeries([], 'food', 5);
+    const series = getCategoryDailySeries([], 'food', 5, REF);
     series.forEach((v) => expect(v).toBe(0));
   });
 });

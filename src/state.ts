@@ -16,6 +16,8 @@ export interface AppState {
   recurring: RecurringTemplate[];
   incidentDismissed: boolean;
   filterCategory: string;
+  viewedYear: number;
+  viewedMonth: number; // 0-indexed, matching Date.getMonth()
   // Computed
   remaining: number;
   dailyBurnRate: number;
@@ -31,12 +33,16 @@ type Listener = (state: AppState) => void;
 
 const listeners: Listener[] = [];
 
+const _now = new Date();
+
 export let state: AppState = {
   settings: { monthlyBudget: 0, incidentThresholdPct: 10 },
   expenses: [],
   recurring: [],
   incidentDismissed: false,
   filterCategory: '',
+  viewedYear: _now.getFullYear(),
+  viewedMonth: _now.getMonth(),
   remaining: 0,
   dailyBurnRate: 0,
   weeklyBurnRate: 0,
@@ -59,14 +65,23 @@ export function setState(partial: Partial<AppState>): void {
 
 function recompute(): void {
   const { monthlyBudget } = state.settings;
-  const { expenses } = state;
+  const { expenses, viewedYear, viewedMonth } = state;
+
+  const now = new Date();
+  const isCurrentMonth =
+    viewedYear === now.getFullYear() && viewedMonth === now.getMonth();
+  const referenceDate = isCurrentMonth
+    ? now
+    : new Date(viewedYear, viewedMonth + 1, 0); // last day of viewed month
 
   const remaining = getRemainingBudget(monthlyBudget, expenses);
-  const daily = getDailyBurnRate(expenses);
-  const weekly = getWeeklyBurnRate(expenses);
-  const slo = getSloPercentage(expenses, monthlyBudget);
-  const incident = isIncident(remaining, monthlyBudget, state.settings.incidentThresholdPct);
-  const dailySeries = getDailySpendSeries(expenses, 30);
+  const daily = getDailyBurnRate(expenses, referenceDate);
+  const weekly = getWeeklyBurnRate(expenses, referenceDate);
+  const slo = getSloPercentage(expenses, monthlyBudget, referenceDate);
+  const incident = isCurrentMonth
+    ? isIncident(remaining, monthlyBudget, state.settings.incidentThresholdPct)
+    : false;
+  const dailySeries = getDailySpendSeries(expenses, 30, referenceDate);
   const categorySpend = getCategorySpend(expenses);
 
   // Trend: compare last 7 days vs previous 7 days
