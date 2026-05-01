@@ -37,6 +37,7 @@
       font-family: var(--font-sans);
       min-height: 100vh;
       line-height: 1.5;
+      overflow-x: hidden;
     }
 
     /* ─── Layout ─────────────────────────────────────────── */
@@ -81,6 +82,29 @@
     @media (max-width: 640px) {
       .grid-2 { grid-template-columns: 1fr; }
       .app-title { font-size: 1.3rem; }
+
+      /* Header: title+settings on first row, nav centred below */
+      .app-header { flex-wrap: wrap; align-items: center; gap: 0; }
+      .app-header > div:first-child { flex: 1; }
+      .month-nav { order: 3; width: 100%; justify-content: center; margin-top: 10px; }
+      .month-nav-label { min-width: 90px; }
+
+      /* Tighter card padding */
+      .card { padding: 16px; }
+
+      /* Touch targets — 44px minimum */
+      .month-nav-btn { width: 44px; height: 44px; }
+      .btn-sm { padding: 10px 14px !important; font-size: 0.78rem !important; }
+      .icon-btn { padding: 10px 12px; font-size: 1rem; }
+
+      /* Expense row: 2-line layout
+         Line 1: date | badge | amount | delete
+         Line 2: note (full width)                */
+      .expense-row { align-items: flex-start; }
+      .expense-date   { order: 1; }
+      .expense-note   { order: 3; flex-basis: 100%; white-space: normal; margin-top: 2px; }
+      .expense-amount { order: 2; margin-left: auto; }
+      .expense-row .icon-btn { order: 2; padding: 0 0 0 8px; margin-left: 4px; }
     }
 
     /* ─── Cards ──────────────────────────────────────────── */
