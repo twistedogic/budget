@@ -31,6 +31,7 @@ export function renderAddExpenseModal(viewedYear: number, viewedMonth: number): 
               placeholder="0.00"
               required
               autocomplete="off"
+              inputmode="decimal"
             />
           </div>
           <div class="form-group">
